@@ -66,7 +66,7 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log('\n==================================================');
-  console.log('🚀 Air Canvas Server is running!');
+  console.log('🚀 Air Drawer Server is running!');
   console.log(`👉 Open in your browser: http://localhost:${PORT}`);
   console.log('==================================================\n');
 });
