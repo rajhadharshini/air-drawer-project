@@ -1,0 +1,12 @@
+{
+  "name": "air-canvas",
+  "version": "1.0.0",
+  "description": "Air Drawing Canvas with MediaPipe Hands",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "localtunnel": "^2.0.2"
+  }
+}

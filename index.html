@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Air Canvas</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --glow-color: #00ffcc;
+      --glow-rgb: 0, 255, 204;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #1a1a2e 0%, #0d0d15 100%);
+      color: #fff;
+      font-family: 'Outfit', 'Segoe UI', sans-serif;
+      overflow: hidden;
+    }
+
+    #title {
+      margin: 0 0 18px;
+      font-size: 32px;
+      letter-spacing: 2px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--glow-color);
+      text-shadow: 0 0 20px rgba(var(--glow-rgb), 0.45);
+    }
+
+    #main-layout {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+
+    #app-container {
+      position: relative;
+      width: min(80vw, 800px);
+      height: min(65vh, 600px);
+      min-height: 420px;
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid rgba(var(--glow-rgb), 0.25);
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.7), 0 0 25px rgba(var(--glow-rgb), 0.12);
+      background: #05050a;
+    }
+
+    #paintCanvas,
+    #webcam {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    #paintCanvas {
+      z-index: 2;
+      background: rgba(5, 5, 10, 0.7);
+    }
+
+    #webcam {
+      z-index: 1;
+      opacity: 0.18;
+      transform: scaleX(-1);
+      filter: contrast(1.2) brightness(0.9);
+      pointer-events: none;
+    }
+
+    #status-overlay {
+      position: absolute;
+      top: 18px;
+      left: 18px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(10, 10, 15, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #888;
+      transition: background-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    #controls {
+      position: absolute;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      background: rgba(10, 10, 15, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      padding: 12px 22px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    label {
+      font-size: 11px;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: #a4a4b8;
+      font-weight: 600;
+    }
+
+    input[type="color"] {
+      width: 38px;
+      height: 38px;
+      border: none;
+      background: none;
+      border-radius: 50%;
+      padding: 0;
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type="color"]::-webkit-color-swatch {
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+    }
+
+    input[type="range"] {
+      accent-color: var(--glow-color);
+      width: 120px;
+      cursor: pointer;
+    }
+
+    #clear-btn {
+      border: 1px solid rgba(255, 99, 99, 0.35);
+      background: rgba(255, 75, 75, 0.12);
+      color: #ff6d6d;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    #clear-btn:hover {
+      background: #ff4b4b;
+      color: #fff;
+      box-shadow: 0 0 15px rgba(255, 75, 75, 0.4);
+    }
+
+    .info-box {
+      max-width: 680px;
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #afafc6;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 999px;
+      padding: 12px 24px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.18);
+    }
+
+    .info-box strong { color: #fff; }
+  </style>
+</head>
+<body>
+  <h2 id="title">Air Canvas</h2>
+
+  <div id="main-layout">
+    <div id="app-container">
+      <div id="status-overlay">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Preparing camera...</span>
+      </div>
+
+      <canvas id="paintCanvas" width="800" height="600"></canvas>
+      <video id="webcam" autoplay playsinline muted></video>
+
+      <div id="controls">
+        <div class="control-group">
+          <label for="colorPicker">Color</label>
+          <input type="color" id="colorPicker" value="#00ffcc" />
+        </div>
+
+        <div class="control-group">
+          <label for="brushSize">Size</label>
+          <input type="range" id="brushSize" min="3" max="30" value="10" />
+        </div>
+
+        <button id="clear-btn" type="button">Clear Canvas</button>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>Controls:</strong>
+      <span style="color: var(--glow-color); font-weight: 700;">☝️ Index Finger</span> = Draw |
+      <span style="color: #ffcc00; font-weight: 700;">🖐️ Open Palm</span> = Erase |
+      <span style="color: #ff5e5e; font-weight: 700;">✊ Closed Fist</span> = Pause
+    </div>
+  </div>
+
+  <script>
+    const videoElement = document.getElementById('webcam');
+    const canvasElement = document.getElementById('paintCanvas');
+    const canvasCtx = canvasElement.getContext('2d');
+
+    const colorPicker = document.getElementById('colorPicker');
+    const brushSizeSlider = document.getElementById('brushSize');
+    const clearBtn = document.getElementById('clear-btn');
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.getElementById('statusDot');
+
+    let lastX = null;
+    let lastY = null;
+    let currentMode = 'Pause';
+
+    function hexToRgb(hex) {
+      const match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return match ? `${parseInt(match[1], 16)}, ${parseInt(match[2], 16)}, ${parseInt(match[3], 16)}` : '0, 255, 204';
+    }
+
+    function updateGlowVariables(hex) {
+      const rgb = hexToRgb(hex);
+      document.documentElement.style.setProperty('--glow-color', hex);
+      document.documentElement.style.setProperty('--glow-rgb', rgb);
+    }
+
+    function updateStatus(text, color) {
+      statusText.textContent = text;
+      statusDot.style.backgroundColor = color;
+      statusDot.style.boxShadow = `0 0 10px ${color}`;
+    }
+
+    function clearCanvas() {
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      lastX = null;
+      lastY = null;
+    }
+
+    clearBtn.addEventListener('click', clearCanvas);
+    colorPicker.addEventListener('input', (event) => updateGlowVariables(event.target.value));
+    updateGlowVariables(colorPicker.value);
+
+    canvasCtx.lineCap = 'round';
+    canvasCtx.lineJoin = 'round';
+
+    function onResults(results) {
+      if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+        updateStatus('No hand detected', '#888');
+        lastX = null;
+        lastY = null;
+        return;
+      }
+
+      const landmarks = results.multiHandLandmarks[0];
+      const indexTip = landmarks[8];
+      const indexPip = landmarks[6];
+      const middleTip = landmarks[12];
+      const middlePip = landmarks[10];
+      const ringTip = landmarks[16];
+      const ringPip = landmarks[14];
+      const pinkyTip = landmarks[20];
+      const pinkyPip = landmarks[18];
+
+      const isIndexUp = indexTip.y < indexPip.y;
+      const isMiddleUp = middleTip.y < middlePip.y;
+      const isRingUp = ringTip.y < ringPip.y;
+      const isPinkyUp = pinkyTip.y < pinkyPip.y;
+
+      const extendedCount = [isIndexUp, isMiddleUp, isRingUp, isPinkyUp].filter(Boolean).length;
+      const cursorX = (1 - indexTip.x) * canvasElement.width;
+      const cursorY = indexTip.y * canvasElement.height;
+
+      const isDrawGesture = isIndexUp && !isMiddleUp && !isRingUp && !isPinkyUp;
+      const isEraseGesture = extendedCount >= 3;
+      const isPauseGesture = !isIndexUp && !isMiddleUp && !isRingUp && !isPinkyUp;
+
+      if (isEraseGesture) {
+        currentMode = 'Erase';
+        updateStatus('Eraser active', '#ffcc00');
+      } else if (isDrawGesture) {
+        currentMode = 'Draw';
+        updateStatus('Drawing', colorPicker.value);
+      } else if (isPauseGesture) {
+        currentMode = 'Pause';
+        updateStatus('Paused', '#ff4d4d');
+      } else {
+        currentMode = 'Pause';
+        updateStatus('Waiting for gesture', '#888');
+      }
+
+      if (currentMode === 'Draw') {
+        canvasCtx.beginPath();
+        if (lastX === null || lastY === null) {
+          canvasCtx.moveTo(cursorX, cursorY);
+        } else {
+          canvasCtx.moveTo(lastX, lastY);
+        }
+
+        canvasCtx.lineTo(cursorX, cursorY);
+
+        const brushColor = colorPicker.value;
+        const brushSize = Number(brushSizeSlider.value);
+
+        canvasCtx.strokeStyle = brushColor;
+        canvasCtx.lineWidth = brushSize;
+        canvasCtx.shadowBlur = brushSize * 1.4;
+        canvasCtx.shadowColor = brushColor;
+        canvasCtx.stroke();
+
+        lastX = cursorX;
+        lastY = cursorY;
+      } else if (currentMode === 'Erase') {
+        canvasCtx.save();
+        canvasCtx.globalCompositeOperation = 'destination-out';
+        canvasCtx.beginPath();
+        canvasCtx.arc(cursorX, cursorY, 36, 0, Math.PI * 2);
+        canvasCtx.fill();
+        canvasCtx.restore();
+
+        canvasCtx.save();
+        canvasCtx.beginPath();
+        canvasCtx.arc(cursorX, cursorY, 36, 0, Math.PI * 2);
+        canvasCtx.strokeStyle = 'rgba(255, 204, 0, 0.45)';
+        canvasCtx.lineWidth = 2;
+        canvasCtx.stroke();
+        canvasCtx.restore();
+
+        lastX = null;
+        lastY = null;
+      } else {
+        lastX = null;
+        lastY = null;
+      }
+    }
+
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+    });
+
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.7
+    });
+
+    hands.onResults(onResults);
+
+    async function startCamera() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        updateStatus('Camera not supported in this browser', '#ff4d4d');
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
+
+        videoElement.srcObject = stream;
+        await videoElement.play();
+
+        updateStatus('Camera ready', '#00ffcc');
+        requestAnimationFrame(processFrame);
+      } catch (error) {
+        let message = 'Camera access error';
+
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          message = 'Camera blocked. Please allow access and refresh.';
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+          message = 'No camera found on this device.';
+        } else {
+          message = `Camera error: ${error.message}`;
+        }
+
+        updateStatus(message, '#ff4d4d');
+        console.error('Camera initialization failed:', error);
+      }
+    }
+
+    async function processFrame() {
+      if (videoElement.readyState >= 2 && !videoElement.paused && !videoElement.ended) {
+        try {
+          await hands.send({ image: videoElement });
+        } catch (error) {
+          console.error('MediaPipe processing error:', error);
+        }
+      }
+      requestAnimationFrame(processFrame);
+    }
+
+    startCamera();
+  </script>
+</body>
+</html>
